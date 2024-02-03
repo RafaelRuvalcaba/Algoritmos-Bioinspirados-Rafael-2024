@@ -1,67 +1,88 @@
+import random
 
-#Example 1
-items = [(5, 10), (10, 1), (100, 50), (500, 100), (11, 99), (53, 33), (12, 100), (66, 500), (13, 5), (7, 77),
-         (5, 10), (10, 1), (100, 50), (500, 100), (11, 99), (53, 33), (12, 100), (66, 500), (13, 5), (7, 77),
-         (5, 10), (10, 1), (100, 50), (500, 100), (11, 99), (53, 33), (12, 100), (66, 500), (13, 5), (7, 77),
-         (5, 10), (10, 1), (100, 50), (500, 100), (11, 99), (53, 33), (12, 100), (66, 500), (13, 5), (7, 77),
-         (5, 10), (10, 1), (100, 50), (500, 100), (11, 99), (53, 33), (12, 100), (66, 500), (13, 5), (7, 77),
-         (5, 10), (10, 1), (100, 50), (500, 100), (11, 99), (53, 33), (12, 100), (66, 500), (13, 5), (7, 77),
-         (5, 10), (10, 1), (100, 50), (500, 100), (11, 99), (53, 33), (12, 100), (66, 500), (13, 5), (7, 77),
-         (5, 10), (10, 1), (100, 50), (500, 100), (11, 99), (53, 33), (12, 100), (66, 500), (13, 5), (7, 77),
-         (5, 10), (10, 1), (100, 50), (500, 100), (11, 99), (53, 33), (12, 100), (66, 500), (13, 5), (7, 77),
-         (5, 10), (10, 1), (100, 50), (500, 100), (11, 99), (53, 33), (12, 100), (66, 500), (13, 5), (7, 77),]
-max_weight = 100
-filestr = 'proj1-ex2-output.txt'
+class ColoniaHormigas:
+    def __init__(self, cuadricula, inicio, fin, n_hormigas, max_iter):
+        self.cuadricula = cuadricula
+        self.feromonas_cuadricula = [[1] * len(fila) for fila in cuadricula]
+        self.inicio = inicio
+        self.fin = fin
+        self.n_hormigas = n_hormigas
+        self.max_iter = max_iter
 
+    def ejecutar(self):
+        for i in range(self.max_iter):
+            hormigas = [Hormiga(self) for _ in range(self.n_hormigas)]
+            for hormiga in hormigas:
+                hormiga.mover()
 
+            self.actualizar_feromonas(hormigas)
 
-def knapsack(max_weight, n):
-	global items
-	#initialize backing 2-d array with i, j indices
-	table = [[0 for i in range(max_weight + 1)] for j in range(n)]
-	#create dynamic programming 2-d array
-	for i in range(0, n, 1):
-		for j in range(0, max_weight + 1, 1):
-			weight_i = (items[i])[0]
-			value_i = (items[i])[1]
-			#recurrence relation
-			if (j - weight_i) >= 0:
-				table[i][j] = max(table[i-1][j], value_i + table[i - 1][j - weight_i])
-			elif (j - weight_i) < 0:
-				table[i][j] = table[i-1][j]
-	return table
+            mejor_camino = min(hormigas, key=lambda x: x.distancia_total)
+            print(f"Iteración {i + 1}: Mejor camino - {mejor_camino.camino}, Distancia - {mejor_camino.distancia_total}")
 
-def get_selection(table, max_weight, n):
-	global items
-	#initialize selection vector
-	vector = [0 for x in range(n)]
-	currweight = max_weight
-	num = 0
-	#walk up, if different, walk left, repeat
-	for i in range(n-1, 0, -1):
-		for j in range(currweight, 0, -1):
-			if table[i][j] != table[i-1][j]:
-				vector[num - i] = 1 
-				currweight = currweight - (items[i - 1])[0]
-				num = num + 1
-				break
-	return vector
+    def actualizar_feromonas(self, hormigas):
+        tasa_evaporacion = 0.5
+        for i, fila in enumerate(self.feromonas_cuadricula):
+            for j, feromona in enumerate(fila):
+                self.feromonas_cuadricula[i][j] *= (1 - tasa_evaporacion)
+                for hormiga in hormigas:
+                    if (i, j) in hormiga.camino:
+                        self.feromonas_cuadricula[i][j] += 1 / hormiga.distancia_total
 
-#length of items list
-n = len(items)
+class Hormiga:
+    def __init__(self, colonia):
+        self.colonia = colonia
+        self.camino = []
+        self.distancia_total = 0
+        self.posicion_actual = colonia.inicio
 
-#call functions
-data = knapsack(max_weight, n)
-vector = get_selection(data, max_weight, n)
-solution = data[n-1][max_weight]
+    def mover(self):
+        while self.posicion_actual != self.colonia.fin:
+            movimientos_posibles = self.obtener_movimientos_posibles()
+            probabilidades = self.calcular_probabilidades(movimientos_posibles)
+            movimiento = self.seleccionar_movimiento(movimientos_posibles, probabilidades)
+            self.camino.append(movimiento)
+            self.distancia_total += self.colonia.cuadricula[movimiento[0]][movimiento[1]]
+            self.posicion_actual = movimiento
 
-#print solutions
-maxstr = 'Max Value = ' + str(solution)
-selvec = 'Selection Vector = ' + str(vector)
-print(vector)
-print(solution)
-#write solutions to file
-output = open(filestr, 'w')
-output.write(maxstr + '\n' + selvec)
-print(maxstr)
-#print(selvec)
+    def obtener_movimientos_posibles(self):
+        i, j = self.posicion_actual
+        movimientos = []
+        if i > 0:
+            movimientos.append((i - 1, j))
+        if i < len(self.colonia.cuadricula) - 1:
+            movimientos.append((i + 1, j))
+        if j > 0:
+            movimientos.append((i, j - 1))
+        if j < len(self.colonia.cuadricula[0]) - 1:
+            movimientos.append((i, j + 1))
+        return movimientos
+
+    def calcular_probabilidades(self, movimientos_posibles):
+        probabilidades = []
+        suma_feromonas = sum(self.colonia.feromonas_cuadricula[i][j] for i, j in movimientos_posibles)
+        for movimiento in movimientos_posibles:
+            i, j = movimiento
+            probabilidad = self.colonia.feromonas_cuadricula[i][j] / suma_feromonas
+            probabilidades.append(probabilidad)
+        return probabilidades
+
+    def seleccionar_movimiento(self, movimientos_posibles, probabilidades):
+        movimiento_seleccionado = random.choices(movimientos_posibles, probabilidades)[0]
+        return movimiento_seleccionado
+
+# Ejemplo de uso
+cuadricula = [
+    [1, 3, 1, 2],
+    [2, 1, 2, 1],
+    [1, 2, 3, 1],
+    [2, 1, 1, 2]
+]
+
+inicio = (0, 0)
+fin = (3, 3)
+n_hormigas = 5
+max_iter = 10
+
+colonia_hormigas = ColoniaHormigas(cuadricula, inicio, fin, n_hormigas, max_iter)
+colonia_hormigas.ejecutar()
